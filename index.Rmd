@@ -1,0 +1,78 @@
+---
+title: "Interactive Map of Fruit Trees in Portland, Oregon"
+author: "Maria-Cristiana Gîrjău and Anisa Lacey"
+date: "November 12, 2019"
+output:
+  html_document:
+    fig_height: 5
+    fig_width: 7
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r setup, include=FALSE}
+library(mdsr) # Load additional packages here 
+library(leaflet)
+library(macleish)
+library(pdxTrees)
+library(tidyr)
+library(tools)
+
+# Some customization. You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme = theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy = FALSE, # display code as typed
+  size = "small") # slightly smaller font for code
+```
+
+```{r}
+# Additional data wrangling - selecting fruit trees
+fruit_trees <- pdxTrees %>%
+  mutate(nuisance = ifelse(is.na(nuisance), "No", "Yes")) %>%
+  filter(condition %in% c("Good", "Fair"), # in good or fair condition
+         !is.na(common_name), # with a specified common name
+         grepl("apple|apricot|cherry|pear|berry|peach|plum|hazel|olive", common_name)) %>%
+  # creating a string to display
+  mutate(common_name_big = toTitleCase(common_name)) %>%
+  unite(display, common_name_big, park, sep = " - ")
+
+fruit_list <- c("apple", "apricot", "cherry", "pear", "berry", "plum", "hazel", "olive")
+
+# Tree icon URLs
+apple <- "http://www.newdesignfile.com/postpic/2011/11/apple-tree-seedlings_94765.png"
+apricot <- "https://i.pinimg.com/originals/39/ab/30/39ab3057d40615285259e5df430629b1.png"
+cherry <- "http://pluspng.com/img-png/cherry-blossom-tree-png-hd-20-free-tree-png-images-cherry-blossom-900.png"
+pear <- "https://artprimshop.com/images/tree-clipart-fruit-4.png"
+berry <- "https://vignette.wikia.nocookie.net/farmville/images/c/c6/Old_Growth_Berry_Tree-icon.png/revision/latest?cb=20130327003052"
+plum <- "https://vignette.wikia.nocookie.net/hayday/images/8/82/Plum_Tree.png/revision/latest/scale-to-width-down/200?cb=20180711101614"
+hazel <- "https://vignette.wikia.nocookie.net/pvzcc/images/3/3f/Wall-nut_Tree.png/revision/latest?cb=20130612135700"
+olive <- "https://i.pinimg.com/originals/af/5e/10/af5e10397f043b34a18eb6b77b821645.png"
+
+# Plotting
+m <- leaflet(width = "100%",  height = 700) %>% 
+  addTiles()
+
+for (fruit in fruit_list) {
+  # get a data frame containing only the specific fruit tree...
+  current_fruit_tree <- fruit_trees %>%
+    filter(grepl(fruit, common_name))
+  # ... and plot it using its corresponding icon
+  m <- m %>% 
+    addMarkers(data = current_fruit_tree, ~longitude, ~latitude, popup = ~display, 
+               icon = list(iconUrl = get(fruit), iconSize = c(50, 50)), group = toTitleCase(fruit))
+}
+
+# Allow user to pick which fruit trees to see
+m <- m %>%
+  addControl("Interactive Map of Fruit Trees in Portland, Oregon", position = "topright") %>%
+  addLayersControl(
+    overlayGroups = c("Apple", "Apricot", "Cherry", "Pear", "Berry", "Plum", "Hazel", "Olive"),
+    options = layersControlOptions(collapsed = FALSE)
+  )
+
+m
+```
